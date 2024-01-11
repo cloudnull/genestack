@@ -3,7 +3,7 @@ FROM openstackhelm/horizon:${VERSION} as build
 ARG PLUGIN_VERSION=master
 RUN apt update && apt install -y git
 RUN /var/lib/openstack/bin/pip install --constraint=https://releases.openstack.org/constraints/upper/${PLUGIN_VERSION} \
-                               git+https://opendev.org/openstack/heat-dashboard@${PLUGIN_VERSION}#egg=heat_dashboard \
-                               git+https://opendev.org/openstack/octavia-dashboard@${PLUGIN_VERSION}#egg=octavia_dashboard
+                               git+https://opendev.org/openstack/heat-dashboard@stable/${PLUGIN_VERSION}#egg=heat_dashboard \
+                               git+https://opendev.org/openstack/octavia-dashboard@stable/${PLUGIN_VERSION}#egg=octavia_dashboard
 FROM openstackhelm/horizon:${VERSION}
 COPY --from=build /var/lib/openstack /var/lib/
