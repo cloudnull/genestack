@@ -121,6 +121,10 @@
     font-weight: bold;
 }
 
+.md-nav__item .md-nav__link--active,.md-nav__item .md-nav__link--active code {
+    color: #c90000;
+}
+
 [data-md-color-accent=red] {
     --md-accent-fg-color: #eb0000;
     --md-accent-fg-color--transparent: #ff19471a;
