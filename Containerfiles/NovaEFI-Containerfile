@@ -1,5 +1,5 @@
 ARG VERSION=master-ubuntu_jammy
-FROM openstackhelm/nova:$VERSION
+FROM openstackhelm/nova:$VERSION as build
 # Packages for the following features:
 # - Nova: EFI
 # - Nova: iSCSI
