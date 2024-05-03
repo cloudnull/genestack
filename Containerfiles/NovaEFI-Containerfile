@@ -10,3 +10,11 @@ RUN apt update && apt install -y ovmf open-iscsi multipath-tools libgirepository
     rm -rf /var/cache/apt/archives /var/lib/apt/lists; \
     apt clean; /var/lib/openstack/bin/pip install pygobject; \
     find /var/lib/openstack -regex '^.*\(__pycache__\|\.py[co]\)$' -delete
+RUN export ORIG_PLUGIN_VERSION="${PLUGIN_VERSION}"; \
+if [ "${PLUGIN_VERSION}" != 'master' ]; then export PLUGIN_VERSION=stable/${PLUGIN_VERSION}; fi; \
+. /var/lib/openstack/bin/activate; \
+/var/lib/openstack/bin/pip install --constraint=https://releases.openstack.org/constraints/upper/${ORIG_PLUGIN_VERSION} \
+                           git+https://github.com/openstack/oslo.db@${PLUGIN_VERSION}#egg=oslo_db
+
+FROM openstackhelm/nova:${VERSION}
+COPY --from=build /var/lib/openstack/. /var/lib/openstack/
