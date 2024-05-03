@@ -1,6 +1,7 @@
 ARG VERSION=master-ubuntu_jammy
 FROM openstackhelm/nova:$VERSION as build
 ARG PLUGIN_VERSION=master
+RUN apt update && apt install -y git
 RUN export ORIG_PLUGIN_VERSION="${PLUGIN_VERSION}"; \
 if [ "${PLUGIN_VERSION}" != 'master' ]; then export PLUGIN_VERSION=stable/${PLUGIN_VERSION}; fi; \
 . /var/lib/openstack/bin/activate; \
