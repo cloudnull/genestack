@@ -9,6 +9,7 @@ if [ "${PLUGIN_VERSION}" != 'master' ]; then export PLUGIN_VERSION=stable/${PLUG
 /var/lib/openstack/bin/pip install git+https://github.com/openstack/oslo.db@${PLUGIN_VERSION}#egg=oslo_db \
                                    git+https://github.com/cloudnull/neutron@${PLUGIN_VERSION}#egg=neutron \
                                    git+https://github.com/cloudnull/neutron-fwaas@${PLUGIN_VERSION}#egg=neutron_fwaas \
+                                   git+https://github.com/openstack/neutron-dynamic-routing@${PLUGIN_VERSION}#egg=neutron_dynamic_routing \
                            --force --upgrade
 FROM openstackhelm/neutron:${VERSION}
 COPY --from=build /var/lib/openstack/. /var/lib/openstack/
