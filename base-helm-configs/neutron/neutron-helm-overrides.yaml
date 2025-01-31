@@ -8,26 +8,26 @@ images:
     ks_user: "quay.io/rackspace/rackerlabs-heat:2024.1-ubuntu_jammy"
     ks_service: "quay.io/rackspace/rackerlabs-heat:2024.1-ubuntu_jammy"
     ks_endpoints: "quay.io/rackspace/rackerlabs-heat:2024.1-ubuntu_jammy"
-    neutron_db_sync: "quay.io/rackspace/rackerlabs-neutron:2024.1-ubuntu_jammy"
-    neutron_dhcp: "quay.io/rackspace/rackerlabs-neutron:2024.1-ubuntu_jammy"
-    neutron_l3: "quay.io/rackspace/rackerlabs-neutron:2024.1-ubuntu_jammy"
-    neutron_l2gw: "quay.io/rackspace/rackerlabs-neutron:2024.1-ubuntu_jammy"
-    neutron_linuxbridge_agent: "quay.io/rackspace/rackerlabs-neutron:2024.1-ubuntu_jammy"
-    neutron_metadata: "quay.io/rackspace/rackerlabs-neutron:2024.1-ubuntu_jammy"
-    neutron_ovn_metadata: "quay.io/rackspace/rackerlabs-neutron:2024.1-ubuntu_jammy"
-    neutron_openvswitch_agent: "quay.io/rackspace/rackerlabs-neutron:2024.1-ubuntu_jammy"
-    neutron_server: "quay.io/rackspace/rackerlabs-neutron:2024.1-ubuntu_jammy"
-    neutron_rpc_server: "quay.io/rackspace/rackerlabs-neutron:2024.1-ubuntu_jammy"
-    neutron_bagpipe_bgp: "quay.io/rackspace/rackerlabs-neutron:2024.1-ubuntu_jammy"
-    neutron_netns_cleanup_cron: "quay.io/rackspace/rackerlabs-neutron:2024.1-ubuntu_jammy"
+    neutron_db_sync: "ghcr.io/cloudnull/genestack/neutron-oslodb:master-ubuntu_jammy-1736541126"
+    neutron_dhcp: "ghcr.io/cloudnull/genestack/neutron-oslodb:master-ubuntu_jammy-1736541126"
+    neutron_l3: "ghcr.io/cloudnull/genestack/neutron-oslodb:master-ubuntu_jammy-1736541126"
+    neutron_l2gw: "ghcr.io/cloudnull/genestack/neutron-oslodb:master-ubuntu_jammy-1736541126"
+    neutron_linuxbridge_agent: "ghcr.io/cloudnull/genestack/neutron-oslodb:master-ubuntu_jammy-1736541126"
+    neutron_metadata: "ghcr.io/cloudnull/genestack/neutron-oslodb:master-ubuntu_jammy-1736541126"
+    neutron_ovn_metadata: "ghcr.io/cloudnull/genestack/neutron-oslodb:master-ubuntu_jammy-1736541126"
+    neutron_openvswitch_agent: "ghcr.io/cloudnull/genestack/neutron-oslodb:master-ubuntu_jammy-1736541126"
+    neutron_server: "ghcr.io/cloudnull/genestack/neutron-oslodb:master-ubuntu_jammy-1736541126"
+    neutron_rpc_server: "ghcr.io/cloudnull/genestack/neutron-oslodb:master-ubuntu_jammy-1736541126"
+    neutron_bagpipe_bgp: "ghcr.io/cloudnull/genestack/neutron-oslodb:master-ubuntu_jammy-1736541126"
+    neutron_netns_cleanup_cron: "ghcr.io/cloudnull/genestack/neutron-oslodb:master-ubuntu_jammy-1736541126"
     test: "quay.io/rackspace/rackerlabs-xrally-openstack:2.0.0"
     purge_test: "quay.io/rackspace/rackerlabs-ospurge:latest"
     rabbit_init: "quay.io/rackspace/rackerlabs-rabbitmq:3.13-management"
     netoffload: "quay.io/rackspace/rackerlabs-netoffload:v1.0.1"
-    neutron_sriov_agent: docker.io/openstackhelm/neutron:stein-18.04-sriov
-    neutron_sriov_agent_init: docker.io/openstackhelm/neutron:stein-18.04-sriov
-    neutron_bgp_dragent: docker.io/openstackhelm/neutron:stein-ubuntu_bionic
-    neutron_ironic_agent: docker.io/openstackhelm/neutron:stein-ubuntu_bionic
+    neutron_sriov_agent: ghcr.io/cloudnull/genestack/neutron-oslodb:master-ubuntu_jammy-1736541126
+    neutron_sriov_agent_init: ghcr.io/cloudnull/genestack/neutron-oslodb:master-ubuntu_jammy-1736541126
+    neutron_bgp_dragent: ghcr.io/cloudnull/genestack/neutron-oslodb:master-ubuntu_jammy-1736541126
+    neutron_ironic_agent: ghcr.io/cloudnull/genestack/neutron-oslodb:master-ubuntu_jammy-1736541126
     dep_check: "quay.io/rackspace/rackerlabs-kubernetes-entrypoint:v1.0.0"
     image_repo_sync: "quay.io/rackspace/rackerlabs-docker:17.07.0"
   pull_policy: "IfNotPresent"
@@ -1781,7 +1781,7 @@ conf:
       # service_plugin can be: router, odl-router, empty for calico,
       # networking_ovn.l3.l3_ovn.OVNL3RouterPlugin for OVN
       # NOTE(cloudnull): This is a bug, doc needs to be updated for ovn-router, instead of OVNL3RouterPlugin
-      service_plugins: ovn-router,qos,metering,trunk,segments
+      service_plugins: ovn-router,qos,metering,trunk,segments,firewall_v2
       allow_automatic_l3agent_failover: True
       l3_ha: False
       max_l3_agents_per_router: 1
@@ -1792,6 +1792,12 @@ conf:
       # (NOTE)portdirect: if unset this is populated dynamically from the value in
       # 'network.backend' to sane defaults.
       interface_driver: null
+    service_providers:
+      service_provider: FIREWALL_V2:fwaas_db:neutron_fwaas.services.firewall.service_drivers.agents.agents.FirewallAgentDriver:default
+    fwaas:
+      agent_version: v2
+      driver: neutron_fwaas.services.firewall.service_drivers.ovn.firewall_l3_driver.OVNFwaasDriver
+      enabled: True
     oslo_concurrency:
       lock_path: /tmp/neutron
     database:
@@ -1964,7 +1970,9 @@ conf:
         max_header_size: 38
       agent:
         availability_zone: az1
-        extensions: fip_qos,gateway_ip_qos
+        extensions: fip_qos,gateway_ip_qos,fwaas_v2
+      fwaas:
+        firewall_l2_driver: noop
     ml2_conf_sriov: null
     taas:
       taas:
