@@ -118,7 +118,7 @@ bootstrap:
   script: null
   structured:
     flavors:
-      enabled: true
+      enabled: false
       options:
         m1_tiny:
           name: "m1.tiny"
