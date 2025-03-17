@@ -1,11 +1,11 @@
 #
-name: Create and Publish a Heat Image
+name: Create and Publish a Magnum Image
 
 on:
   push:
     paths:
     - '.github/workflows/release-magnum-rxt.yml'
-    - 'Containerfiles/HeatRXT-Containerfile'
+    - 'Containerfiles/MagnumRXT-Containerfile'
     branches:
       - development
       - main
@@ -65,7 +65,7 @@ jobs:
         uses: docker/build-push-action@f2a1d5e99d037542a71f64918e516c093c6f3fc4
         with:
           context: .
-          file: Containerfiles/HeatRXT-Containerfile
+          file: Containerfiles/MagnumRXT-Containerfile
           push: true
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}/magnum:${{ github.event.inputs.imageTag || env.DEF_TAG_NAME }}
