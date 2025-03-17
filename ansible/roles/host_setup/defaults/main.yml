@@ -42,7 +42,8 @@ host_rp_filter_all: 0
 host_rp_filter_default: 0
 
 # Set the maximum size of the connection tracking table.
-host_nf_conntrack_max: 262144
+host_nf_conntrack_max: 1048576
+host_nf_conntrack_buckets: 262144
 
 # System control kernel tuning
 kernel_options:
@@ -106,12 +107,24 @@ kernel_options:
     value: "{{ set_gc_val | int * 2 }}"
   - key: 'net.netfilter.nf_conntrack_max'
     value: "{{ host_nf_conntrack_max }}"
+  - key: 'net.netfilter.nf_conntrack_buckets'
+    value: "{{ host_nf_conntrack_buckets }}"
   - key: 'vm.dirty_background_ratio'
     value: 5
   - key: 'vm.dirty_ratio'
     value: 10
   - key: 'vm.swappiness'
     value: 5
+  - key: 'net.ipv4.conf.all.secure_redirects'
+    value: 0
+  - key: 'net.ipv4.conf.all.accept_redirects'
+    value: 0
+  - key: 'net.ipv6.conf.all.accept_redirects'
+    value: 0
+  - key: 'net.ipv4.conf.default.accept_redirects'
+    value: 0
+  - key: 'net.ipv4.conf.default.secure_redirects'
+    value: 0
 
 ## kernel modules for specific group hosts
 host_specific_kernel_modules: []

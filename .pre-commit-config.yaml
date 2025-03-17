@@ -1,33 +1,76 @@
 ---
+default_install_hook_types:
+  - pre-commit
+  - commit-msg
+
 repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0
+  - repo: https://github.com/compilerla/conventional-pre-commit
+    rev: v4.0.0
     hooks:
-    - id: end-of-file-fixer
-    - id: trailing-whitespace
-    - id: mixed-line-ending
-    - id: check-byte-order-marker
-    - id: check-executables-have-shebangs
-    - id: check-merge-conflict
-    - id: check-symlinks
-    - id: check-yaml
-      files: .*\.(yaml|yml)$
-      args:
-      - "--allow-multiple-documents"
-      - "--unsafe"
-    - id: debug-statements
-  - repo: https://github.com/psf/black
-    rev: 24.1.1
-    hooks:
-    - id: black
-  - repo: https://github.com/ansible-community/ansible-lint
-    rev: v6.22.2
-    hooks:
-    - id: ansible-lint
-      additional_dependencies:
-      - ansible
-      - yamllint
+      - id: conventional-pre-commit
+        stages:
+          - commit-msg
+        args:
+          - "--strict"
   - repo: https://github.com/jumanjihouse/pre-commit-hooks
     rev: 3.0.0
     hooks:
-    - id: shellcheck
+      - id: shellcheck
+        stages:
+          - commit-msg
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: end-of-file-fixer
+        stages:
+          - commit-msg
+      - id: trailing-whitespace
+        stages:
+          - commit-msg
+      - id: mixed-line-ending
+        stages:
+          - commit-msg
+      - id: check-byte-order-marker
+        stages:
+          - commit-msg
+      - id: check-executables-have-shebangs
+        stages:
+          - commit-msg
+      - id: check-merge-conflict
+        stages:
+          - commit-msg
+      - id: check-symlinks
+        stages:
+          - commit-msg
+      - id: check-yaml
+        stages:
+          - commit-msg
+        files: .*\.(yaml|yml)$
+        args:
+          - "--allow-multiple-documents"
+          - "--unsafe"
+      - id: debug-statements
+  - repo: https://github.com/psf/black
+    rev: 25.1.0
+    hooks:
+      - id: black
+        stages:
+          - manual
+  - repo: https://github.com/adrienverge/yamllint.git
+    rev: v1.35.1
+    hooks:
+      - id: yamllint
+        stages:
+          - manual
+        args:
+          - >-
+            -d {extends: default, rules: {line-length: disable},
+            ignore: [submodules/]}
+  - repo: https://github.com/ansible-community/ansible-lint
+    rev: v24.9.2
+    hooks:
+      - id: ansible-lint
+        stages:
+          - manual
+        additional_dependencies:
+          - ansible

@@ -1,26 +1,4 @@
 ---
-release_group: null
-
-labels:
-  compute:
-    node_selector_key: openstack-compute-node
-    node_selector_value: enabled
-  central:
-    node_selector_key: openstack-control-plane
-    node_selector_value: enabled
-  ipmi:
-    node_selector_key: openstack-node
-    node_selector_value: enabled
-  notification:
-    node_selector_key: openstack-control-plane
-    node_selector_value: enabled
-  job:
-    node_selector_key: openstack-control-plane
-    node_selector_value: enabled
-  test:
-    node_selector_key: openstack-control-plane
-    node_selector_value: enabled
-
 images:
   tags:
     test: "quay.io/rackspace/rackerlabs-xrally-openstack:2.0.0"
@@ -35,24 +13,19 @@ images:
     dep_check: "quay.io/rackspace/rackerlabs-kubernetes-entrypoint:v1.0.0"
     image_repo_sync: "quay.io/rackspace/rackerlabs-docker:17.07.0"
   pull_policy: "Always"
-  local_registry:
-    active: false
-    exclude:
-      - dep_check
-      - image_repo_sync
-
-ipmi_device: /dev/ipmi0
 
 conf:
   ceilometer:
     DEFAULT:
       debug: "false"
-#      default_log_levels: >-
-#        amqp=WARN,amqplib=WARN,boto=WARN,qpid=WARN,sqlalchemy=WARN,suds=INFO,oslo.messaging=INFO,
-#        oslo_messaging=INFO,iso8601=WARN,requests.packages.urllib3.connectionpool=DEBUG,
-#        urllib3.connectionpool=DEBUG,websocket=WARN,requests.packages.urllib3.util.retry=DEBUG,
-#        urllib3.util.retry=DEBUG,keystonemiddleware=WARN,routes.middleware=WARN,stevedore=WARN,
-#        taskflow=WARN,keystoneauth=WARN,oslo.cache=INFO,oslo_policy=INFO,dogpile.core.dogpile=INFO
+      # NOTE: If you need to enable debug, it is highly recommended to uncomment the below lines
+      # to ensure logs are ceilometer does not spam the logs
+      #      default_log_levels: >-
+      #        amqp=WARN,amqplib=WARN,boto=WARN,qpid=WARN,sqlalchemy=WARN,suds=INFO,oslo.messaging=INFO,
+      #        oslo_messaging=INFO,iso8601=WARN,requests.packages.urllib3.connectionpool=DEBUG,
+      #        urllib3.connectionpool=DEBUG,websocket=WARN,requests.packages.urllib3.util.retry=DEBUG,
+      #        urllib3.util.retry=DEBUG,keystonemiddleware=WARN,routes.middleware=WARN,stevedore=WARN,
+      #        taskflow=WARN,keystoneauth=WARN,oslo.cache=INFO,oslo_policy=INFO,dogpile.core.dogpile=INFO
       event_dispatchers:
         type: multistring
         values:
@@ -62,26 +35,12 @@ conf:
         values:
           - gnocchi
     api:
-      aodh_is_enabled: "False"
       aodh_url: "NotUsed"
-    dispatcher_gnocchi:
-      filter_service_activity: False
-      archive_policy: low
-      resources_definition_file: /etc/ceilometer/gnocchi_resources.yaml
     database:
       connection: "NotUsed"
       event_connection: "NotUsed"
       metering_connection: "NotUsed"
       max_retries: -1
-    dispatcher:
-      archive_policy: low
-      filter_project: service
-    keystone_authtoken:
-      auth_type: password
-      auth_version: v3
-    service_credentials:
-      auth_type: password
-      interface: internal
     notification:
       messaging_urls:
         type: multistring
@@ -93,6 +52,7 @@ conf:
           - rabbit://rabbitmq:password@rabbitmq.openstack.svc.cluster.local:5672/keystone
           - rabbit://rabbitmq:password@rabbitmq.openstack.svc.cluster.local:5672/neutron
           - rabbit://rabbitmq:password@rabbitmq.openstack.svc.cluster.local:5672/heat
+          - rabbit://rabbitmq:password@rabbitmq.openstack.svc.cluster.local:5672/swift
     oslo_messaging_notifications:
       driver: messagingv2
       topics:
@@ -102,33 +62,24 @@ conf:
       lock_path: /tmp/ceilometer
     oslo_messaging_rabbit:
       amqp_durable_queues: false
-      # We define use of quorum queues via kustomize but this was enabling HA queues instead
-      # ha_queues are deprecated, explicitly set to false and set quorum_queue true
       rabbit_ha_queues: false
       rabbit_quorum_queue: true
-      # TODO: Not available until 2024.1, but once it is, we want to enable these!
-      # new feature ref; https://docs.openstack.org/releasenotes/oslo.messaging/2024.1.html
       rabbit_transient_quorum_queue: false
       use_queue_manager: false
-      # Reconnect after a node outage more quickly
       rabbit_interval_max: 10
       # Send more frequent heartbeats and fail unhealthy nodes faster
       # heartbeat_timeout / heartbeat_rate / 2.0 = 30 / 3 / 2.0 = 5
       # https://opendev.org/openstack/oslo.messaging/commit/36fb5bceabe08a982ebd52e4a8f005cd26fdf6b8
       heartbeat_rate: 3
-      heartbeat_timeout_threshold: 30
-      # Setting lower kombu_reconnect_delay should resolve isssue with HA failing when one node is down
+      heartbeat_timeout_threshold: 60
+      # DEPRECIATION:  (warning) heartbeat_in_pthread will be deprecated in 2024.2
+      heartbeat_in_pthread: True
+      # Setting lower kombu_reconnect_delay should resolve issue with HA failing when one node is down
       # https://lists.openstack.org/pipermail/openstack-discuss/2023-April/033314.html
       # https://review.opendev.org/c/openstack/oslo.messaging/+/866617
       kombu_reconnect_delay: 0.5
-    oslo_policy:
-      policy_file: /etc/ceilometer/policy.yaml
-    cache:
-      enabled: true
-      backend: dogpile.cache.memcached
-      expiration_time: 86400
   event_definitions:
-    - event_type: 'compute.instance.*'
+    - event_type: "compute.instance.*"
       traits: &instance_traits
         tenant_id:
           fields: payload.tenant_id
@@ -200,7 +151,23 @@ conf:
         audit_period_ending:
           type: datetime
           fields: payload.audit_period_ending
-    - event_type: ['volume.exists', 'volume.retype', 'volume.create.*', 'volume.delete.*', 'volume.resize.*', 'volume.attach.*', 'volume.detach.*', 'volume.update.*', 'snapshot.exists', 'snapshot.create.*', 'snapshot.delete.*', 'snapshot.update.*', 'volume.transfer.accept.end', 'snapshot.transfer.accept.end']
+    - event_type:
+        [
+          "volume.exists",
+          "volume.retype",
+          "volume.create.*",
+          "volume.delete.*",
+          "volume.resize.*",
+          "volume.attach.*",
+          "volume.detach.*",
+          "volume.update.*",
+          "snapshot.exists",
+          "snapshot.create.*",
+          "snapshot.delete.*",
+          "snapshot.update.*",
+          "volume.transfer.accept.end",
+          "snapshot.transfer.accept.end",
+        ]
       traits: &cinder_traits
         user_id:
           fields: payload.user_id
@@ -221,7 +188,19 @@ conf:
           fields: payload.glance_metadata[?key=image_id].value
         instance_id:
           fields: payload.volume_attachment[0].instance_uuid
-    - event_type: ['volume.transfer.*', 'volume.exists', 'volume.retype', 'volume.create.*', 'volume.delete.*', 'volume.resize.*', 'volume.attach.*', 'volume.detach.*', 'volume.update.*', 'snapshot.transfer.accept.end']
+    - event_type:
+        [
+          "volume.transfer.*",
+          "volume.exists",
+          "volume.retype",
+          "volume.create.*",
+          "volume.delete.*",
+          "volume.resize.*",
+          "volume.attach.*",
+          "volume.detach.*",
+          "volume.update.*",
+          "snapshot.transfer.accept.end",
+        ]
       traits:
         <<: *cinder_traits
         resource_id:
@@ -235,14 +214,15 @@ conf:
           fields: payload.volume_type
         replication_status:
           fields: payload.replication_status
-    - event_type: ['snapshot.transfer.accept.end']
+    - event_type: ["snapshot.transfer.accept.end"]
       traits:
         <<: *cinder_traits
         resource_id:
           fields: payload.snapshot_id
         project_id:
           fields: payload.tenant_id
-    - event_type: ['share.create.*', 'share.delete.*', 'share.extend.*', 'share.shrink.*']
+    - event_type:
+        ["share.create.*", "share.delete.*", "share.extend.*", "share.shrink.*"]
       traits: &share_traits
         share_id:
           fields: payload.share_id
@@ -274,20 +254,27 @@ conf:
           fields: payload.description
         host:
           fields: payload.host
-    - event_type: ['snapshot.exists', 'snapshot.create.*', 'snapshot.delete.*', 'snapshot.update.*']
+    - event_type:
+        [
+          "snapshot.exists",
+          "snapshot.create.*",
+          "snapshot.delete.*",
+          "snapshot.update.*",
+        ]
       traits:
         <<: *cinder_traits
         resource_id:
           fields: payload.snapshot_id
         volume_id:
           fields: payload.volume_id
-    - event_type: ['image_volume_cache.*']
+    - event_type: ["image_volume_cache.*"]
       traits:
         image_id:
           fields: payload.image_id
         host:
           fields: payload.host
-    - event_type: ['image.create', 'image.update', 'image.upload', 'image.delete']
+    - event_type:
+        ["image.create", "image.update", "image.upload", "image.delete"]
       traits: &glance_crud
         project_id:
           fields: payload.owner
@@ -328,7 +315,7 @@ conf:
         project_id:
           fields: payload.tenant_id
         user_id:
-          fields: ['ctxt.trustor_user_id', 'ctxt.user_id']
+          fields: ["ctxt.trustor_user_id", "ctxt.user_id"]
         resource_id:
           fields: payload.stack_identity
         name:
@@ -360,8 +347,18 @@ conf:
         updated_at:
           type: datetime
           fields: payload.updated_at
-    - event_type: ['identity.user.*', 'identity.project.*', 'identity.group.*', 'identity.role.*', 'identity.OS-TRUST:trust.*',
-                   'identity.region.*', 'identity.service.*', 'identity.endpoint.*', 'identity.policy.*']
+    - event_type:
+        [
+          "identity.user.*",
+          "identity.project.*",
+          "identity.group.*",
+          "identity.role.*",
+          "identity.OS-TRUST:trust.*",
+          "identity.region.*",
+          "identity.service.*",
+          "identity.endpoint.*",
+          "identity.policy.*",
+        ]
       traits: &identity_crud
         resource_id:
           fields: payload.resource_info
@@ -453,7 +450,21 @@ conf:
           fields: payload.target.metadata.object
         observer_id:
           fields: payload.observer.id
-    - event_type: ['network.*', 'subnet.*', 'port.*', 'router.*', 'floatingip.*', 'firewall.*', 'firewall_policy.*', 'firewall_rule.*', 'vpnservice.*', 'ipsecpolicy.*', 'ikepolicy.*', 'ipsec_site_connection.*']
+    - event_type:
+        [
+          "network.*",
+          "subnet.*",
+          "port.*",
+          "router.*",
+          "floatingip.*",
+          "firewall.*",
+          "firewall_policy.*",
+          "firewall_rule.*",
+          "vpnservice.*",
+          "ipsecpolicy.*",
+          "ikepolicy.*",
+          "ipsec_site_connection.*",
+        ]
       traits: &network_traits
         user_id:
           fields: ctxt.user_id
@@ -465,81 +476,81 @@ conf:
         name:
           fields: payload.network.name
         resource_id:
-          fields: ['payload.network.id', 'payload.id']
+          fields: ["payload.network.id", "payload.id"]
     - event_type: subnet.*
       traits:
         <<: *network_traits
         name:
           fields: payload.subnet.name
         resource_id:
-          fields: ['payload.subnet.id', 'payload.id']
+          fields: ["payload.subnet.id", "payload.id"]
     - event_type: port.*
       traits:
         <<: *network_traits
         name:
           fields: payload.port.name
         resource_id:
-          fields: ['payload.port.id', 'payload.id']
+          fields: ["payload.port.id", "payload.id"]
     - event_type: router.*
       traits:
         <<: *network_traits
         name:
           fields: payload.router.name
         resource_id:
-          fields: ['payload.router.id', 'payload.id']
+          fields: ["payload.router.id", "payload.id"]
     - event_type: floatingip.*
       traits:
         <<: *network_traits
         resource_id:
-          fields: ['payload.floatingip.id', 'payload.id']
+          fields: ["payload.floatingip.id", "payload.id"]
     - event_type: firewall.*
       traits:
         <<: *network_traits
         name:
           fields: payload.firewall.name
         resource_id:
-          fields: ['payload.firewall.id', 'payload.id']
+          fields: ["payload.firewall.id", "payload.id"]
     - event_type: firewall_policy.*
       traits:
         <<: *network_traits
         name:
           fields: payload.firewall_policy.name
         resource_id:
-          fields: ['payload.firewall_policy.id', 'payload.id']
+          fields: ["payload.firewall_policy.id", "payload.id"]
     - event_type: firewall_rule.*
       traits:
         <<: *network_traits
         name:
           fields: payload.firewall_rule.name
         resource_id:
-          fields: ['payload.firewall_rule.id', 'payload.id']
+          fields: ["payload.firewall_rule.id", "payload.id"]
     - event_type: vpnservice.*
       traits:
         <<: *network_traits
         name:
           fields: payload.vpnservice.name
         resource_id:
-          fields: ['payload.vpnservice.id', 'payload.id']
+          fields: ["payload.vpnservice.id", "payload.id"]
     - event_type: ipsecpolicy.*
       traits:
         <<: *network_traits
         name:
           fields: payload.ipsecpolicy.name
         resource_id:
-          fields: ['payload.ipsecpolicy.id', 'payload.id']
+          fields: ["payload.ipsecpolicy.id", "payload.id"]
     - event_type: ikepolicy.*
       traits:
         <<: *network_traits
         name:
           fields: payload.ikepolicy.name
         resource_id:
-          fields: ['payload.ikepolicy.id', 'payload.id']
+          fields: ["payload.ikepolicy.id", "payload.id"]
     - event_type: ipsec_site_connection.*
       traits:
         <<: *network_traits
         resource_id:
-          fields: ['payload.ipsec_site_connection.id', 'payload.id']
-    - event_type: '*http.*'
+          fields: ["payload.ipsec_site_connection.id", "payload.id"]
+    - event_type: "*http.*"
       traits: &http_audit
         project_id:
           fields: payload.initiator.project_id
@@ -576,12 +587,13 @@ conf:
           fields: payload.initiator.name
         initiator_host_address:
           fields: payload.initiator.host.address
-    - event_type: '*http.response'
+    - event_type: "*http.response"
       traits:
         <<: *http_audit
         reason_code:
           fields: payload.reason.reasonCode
-    - event_type: ['dns.domain.create', 'dns.domain.update', 'dns.domain.delete']
+    - event_type:
+        ["dns.domain.create", "dns.domain.update", "dns.domain.delete"]
       traits: &dns_domain_traits
         status:
           fields: payload.status
@@ -648,7 +660,13 @@ conf:
           fields: payload.created_at
         region:
           fields: payload.region
-    - event_type: ['trove.instance.create', 'trove.instance.modify_volume', 'trove.instance.modify_flavor', 'trove.instance.delete']
+    - event_type:
+        [
+          "trove.instance.create",
+          "trove.instance.modify_volume",
+          "trove.instance.modify_flavor",
+          "trove.instance.delete",
+        ]
       traits: &trove_common_traits
         name:
           fields: payload.name
@@ -731,7 +749,7 @@ conf:
           fields: payload.info.db.statement
         db.params:
           fields: payload.info.db.params
-    - event_type: 'magnum.cluster.*'
+    - event_type: "magnum.cluster.*"
       traits: &magnum_cluster_crud
         id:
           fields: payload.id
@@ -764,7 +782,7 @@ conf:
           fields: payload.observer.id
         observer_typeURI:
           fields: payload.observer.typeURI
-    - event_type: 'alarm.*'
+    - event_type: "alarm.*"
       traits:
         id:
           fields: payload.alarm_id
@@ -1008,11 +1026,11 @@ conf:
 
       - resource_type: ipmi_sensor
         metrics:
-          - 'hardware.ipmi.power'
-          - 'hardware.ipmi.temperature'
-          - 'hardware.ipmi.current'
-          - 'hardware.ipmi.voltage'
-          - 'hardware.ipmi.fan'
+          - "hardware.ipmi.power"
+          - "hardware.ipmi.temperature"
+          - "hardware.ipmi.current"
+          - "hardware.ipmi.voltage"
+          - "hardware.ipmi.fan"
         attributes:
           node: resource_metadata.node
 
@@ -1035,8 +1053,11 @@ conf:
       - resource_type: swift_account
         metrics:
           storage.objects.incoming.bytes:
+            archive_policy_name: low
           storage.objects.outgoing.bytes:
+            archive_policy_name: low
           storage.objects.size:
+            archive_policy_name: low
           storage.objects:
           storage.objects.containers:
           storage.containers.objects:
@@ -1058,6 +1079,7 @@ conf:
           display_name: resource_metadata.(display_name|name)
           volume_type: resource_metadata.volume_type
           volume_type_id: resource_metadata.volume_type_id
+          volume_id: resource_metadata.volume_id
           image_id: resource_metadata.image_id
           instance_id: resource_metadata.instance_id
         event_create:
@@ -1074,6 +1096,7 @@ conf:
           project_id: project_id
           image_id: image_id
           instance_id: instance_id
+          volume_id: volume_id
 
       - resource_type: volume_provider
         metrics:
@@ -1197,99 +1220,99 @@ conf:
         resource_id: $.payload.image_id
         project_id: $.payload.owner_id
 
-      - name: 'volume.provider.capacity.total'
-        event_type: 'capacity.backend.*'
-        type: 'gauge'
-        unit: 'GB'
+      - name: "volume.provider.capacity.total"
+        event_type: "capacity.backend.*"
+        type: "gauge"
+        unit: "GB"
         volume: $.payload.total
         resource_id: $.payload.name_to_id
 
-      - name: 'volume.provider.capacity.free'
-        event_type: 'capacity.backend.*'
-        type: 'gauge'
-        unit: 'GB'
+      - name: "volume.provider.capacity.free"
+        event_type: "capacity.backend.*"
+        type: "gauge"
+        unit: "GB"
         volume: $.payload.free
         resource_id: $.payload.name_to_id
 
-      - name: 'volume.provider.capacity.allocated'
-        event_type: 'capacity.backend.*'
-        type: 'gauge'
-        unit: 'GB'
+      - name: "volume.provider.capacity.allocated"
+        event_type: "capacity.backend.*"
+        type: "gauge"
+        unit: "GB"
         volume: $.payload.allocated
         resource_id: $.payload.name_to_id
 
-      - name: 'volume.provider.capacity.provisioned'
-        event_type: 'capacity.backend.*'
-        type: 'gauge'
-        unit: 'GB'
+      - name: "volume.provider.capacity.provisioned"
+        event_type: "capacity.backend.*"
+        type: "gauge"
+        unit: "GB"
         volume: $.payload.provisioned
         resource_id: $.payload.name_to_id
 
-      - name: 'volume.provider.capacity.virtual_free'
-        event_type: 'capacity.backend.*'
-        type: 'gauge'
-        unit: 'GB'
+      - name: "volume.provider.capacity.virtual_free"
+        event_type: "capacity.backend.*"
+        type: "gauge"
+        unit: "GB"
         volume: $.payload.virtual_free
         resource_id: $.payload.name_to_id
 
-      - name: 'volume.provider.pool.capacity.total'
-        event_type: 'capacity.pool.*'
-        type: 'gauge'
-        unit: 'GB'
+      - name: "volume.provider.pool.capacity.total"
+        event_type: "capacity.pool.*"
+        type: "gauge"
+        unit: "GB"
         volume: $.payload.total
         resource_id: $.payload.name_to_id
         metadata: &provider_pool_meta
           provider: $.payload.name_to_id.`split(#, 0, 1)`
 
-      - name: 'volume.provider.pool.capacity.free'
-        event_type: 'capacity.pool.*'
-        type: 'gauge'
-        unit: 'GB'
+      - name: "volume.provider.pool.capacity.free"
+        event_type: "capacity.pool.*"
+        type: "gauge"
+        unit: "GB"
         volume: $.payload.free
         resource_id: $.payload.name_to_id
         metadata:
-           <<: *provider_pool_meta
+          <<: *provider_pool_meta
 
-      - name: 'volume.provider.pool.capacity.allocated'
-        event_type: 'capacity.pool.*'
-        type: 'gauge'
-        unit: 'GB'
+      - name: "volume.provider.pool.capacity.allocated"
+        event_type: "capacity.pool.*"
+        type: "gauge"
+        unit: "GB"
         volume: $.payload.allocated
         resource_id: $.payload.name_to_id
         metadata:
-           <<: *provider_pool_meta
+          <<: *provider_pool_meta
 
-      - name: 'volume.provider.pool.capacity.provisioned'
-        event_type: 'capacity.pool.*'
-        type: 'gauge'
-        unit: 'GB'
+      - name: "volume.provider.pool.capacity.provisioned"
+        event_type: "capacity.pool.*"
+        type: "gauge"
+        unit: "GB"
         volume: $.payload.provisioned
         resource_id: $.payload.name_to_id
         metadata:
-           <<: *provider_pool_meta
+          <<: *provider_pool_meta
 
-      - name: 'volume.provider.pool.capacity.virtual_free'
-        event_type: 'capacity.pool.*'
-        type: 'gauge'
-        unit: 'GB'
+      - name: "volume.provider.pool.capacity.virtual_free"
+        event_type: "capacity.pool.*"
+        type: "gauge"
+        unit: "GB"
         volume: $.payload.virtual_free
         resource_id: $.payload.name_to_id
         metadata:
-           <<: *provider_pool_meta
+          <<: *provider_pool_meta
 
-      - name: 'volume.size'
+      - name: "volume.size"
         event_type:
-          - 'volume.exists'
-          - 'volume.retype'
-          - 'volume.create.*'
-          - 'volume.delete.*'
-          - 'volume.resize.*'
-          - 'volume.attach.*'
-          - 'volume.detach.*'
-          - 'volume.update.*'
-          - 'volume.manage.*'
-        type: 'gauge'
-        unit: 'GB'
+          - "volume.exists"
+          - "volume.retype"
+          - "volume.create.*"
+          - "volume.delete.*"
+          - "volume.resize.*"
+          - "volume.attach.*"
+          - "volume.detach.*"
+          - "volume.update.*"
+          - "volume.manage.*"
+        type: "gauge"
+        unit: "GB"
         volume: $.payload.size
         user_id: $.payload.user_id
         project_id: $.payload.tenant_id
@@ -1300,29 +1323,30 @@ conf:
           image_id: $.payload.glance_metadata[?key=image_id].value
           instance_id: $.payload.volume_attachment[0].instance_uuid
 
-      - name: 'snapshot.size'
+      - name: "snapshot.size"
         event_type:
-          - 'snapshot.exists'
-          - 'snapshot.create.*'
-          - 'snapshot.delete.*'
-          - 'snapshot.manage.*'
-        type: 'gauge'
-        unit: 'GB'
+          - "snapshot.exists"
+          - "snapshot.create.*"
+          - "snapshot.delete.*"
+          - "snapshot.manage.*"
+        type: "gauge"
+        unit: "GB"
         volume: $.payload.volume_size
         user_id: $.payload.user_id
         project_id: $.payload.tenant_id
         resource_id: $.payload.snapshot_id
         metadata:
           display_name: $.payload.display_name
+          volume_id: $.payload.volume_id
 
-      - name: 'backup.size'
+      - name: "backup.size"
         event_type:
-          - 'backup.exists'
-          - 'backup.create.*'
-          - 'backup.delete.*'
-          - 'backup.restore.*'
-        type: 'gauge'
-        unit: 'GB'
+          - "backup.exists"
+          - "backup.create.*"
+          - "backup.delete.*"
+          - "backup.restore.*"
+        type: "gauge"
+        unit: "GB"
         volume: $.payload.size
         user_id: $.payload.user_id
         project_id: $.payload.tenant_id
@@ -1332,30 +1356,30 @@ conf:
 
       # Magnum
       - name: $.payload.metrics.[*].name
-        event_type: 'magnum.bay.metrics.*'
-        type: 'gauge'
+        event_type: "magnum.bay.metrics.*"
+        type: "gauge"
         unit: $.payload.metrics.[*].unit
         volume: $.payload.metrics.[*].value
         user_id: $.payload.user_id
         project_id: $.payload.project_id
         resource_id: $.payload.resource_id
-        lookup: ['name', 'unit', 'volume']
+        lookup: ["name", "unit", "volume"]
 
       # Swift
       - name: $.payload.measurements.[*].metric.[*].name
-        event_type: 'objectstore.http.request'
-        type: 'delta'
+        event_type: "objectstore.http.request"
+        type: "delta"
         unit: $.payload.measurements.[*].metric.[*].unit
         volume: $.payload.measurements.[*].result
         resource_id: $.payload.target.id
         user_id: $.payload.initiator.id
         project_id: $.payload.initiator.project_id
-        lookup: ['name', 'unit', 'volume']
+        lookup: ["name", "unit", "volume"]
 
-      - name: 'memory'
+      - name: "memory"
         event_type: &instance_events compute.instance.(?!create.start|update).*
-        type: 'gauge'
-        unit: 'MB'
+        type: "gauge"
+        unit: "MB"
         volume: $.payload.memory_mb
         user_id: $.payload.user_id
         project_id: $.payload.tenant_id
@@ -1371,67 +1395,67 @@ conf:
           created_at: $.payload.created_at
           deleted_at: $.payload.deleted_at
 
-      - name: 'vcpus'
+      - name: "vcpus"
         event_type: *instance_events
-        type: 'gauge'
-        unit: 'vcpu'
+        type: "gauge"
+        unit: "vcpu"
         volume: $.payload.vcpus
         user_id: $.payload.user_id
         project_id: $.payload.tenant_id
         resource_id: $.payload.instance_id
         user_metadata: $.payload.metadata
         metadata:
-           <<: *instance_meta
+          <<: *instance_meta
 
-      - name: 'compute.instance.booting.time'
-        event_type: 'compute.instance.create.end'
-        type: 'gauge'
-        unit: 'sec'
+      - name: "compute.instance.booting.time"
+        event_type: "compute.instance.create.end"
+        type: "gauge"
+        unit: "sec"
         volume:
           fields: [$.payload.created_at, $.payload.launched_at]
-          plugin: 'timedelta'
+          plugin: "timedelta"
         project_id: $.payload.tenant_id
         resource_id: $.payload.instance_id
         user_metadata: $.payload.metadata
         metadata:
           <<: *instance_meta
 
-      - name: 'disk.root.size'
+      - name: "disk.root.size"
         event_type: *instance_events
-        type: 'gauge'
-        unit: 'GB'
+        type: "gauge"
+        unit: "GB"
         volume: $.payload.root_gb
         user_id: $.payload.user_id
         project_id: $.payload.tenant_id
         resource_id: $.payload.instance_id
         user_metadata: $.payload.metadata
         metadata:
-           <<: *instance_meta
+          <<: *instance_meta
 
-      - name: 'disk.ephemeral.size'
+      - name: "disk.ephemeral.size"
         event_type: *instance_events
-        type: 'gauge'
-        unit: 'GB'
+        type: "gauge"
+        unit: "GB"
         volume: $.payload.ephemeral_gb
         user_id: $.payload.user_id
         project_id: $.payload.tenant_id
         resource_id: $.payload.instance_id
         user_metadata: $.payload.metadata
         metadata:
-           <<: *instance_meta
+          <<: *instance_meta
 
-      - name: 'bandwidth'
-        event_type: 'l3.meter'
-        type: 'delta'
-        unit: 'B'
+      - name: "bandwidth"
+        event_type: "l3.meter"
+        type: "delta"
+        unit: "B"
         volume: $.payload.bytes
         project_id: $.payload.tenant_id
         resource_id: $.payload.label_id
 
-      - name: 'compute.node.cpu.frequency'
-        event_type: 'compute.metrics.update'
-        type: 'gauge'
-        unit: 'MHz'
+      - name: "compute.node.cpu.frequency"
+        event_type: "compute.metrics.update"
+        type: "gauge"
+        unit: "MHz"
         volume: $.payload.metrics[?(@.name='cpu.frequency')].value
         resource_id: $.payload.host + "_" + $.payload.nodename
         timestamp: $.payload.metrics[?(@.name='cpu.frequency')].timestamp
@@ -1440,10 +1464,10 @@ conf:
           host: $.publisher_id
           source: $.payload.metrics[?(@.name='cpu.frequency')].source
 
-      - name: 'compute.node.cpu.user.time'
-        event_type: 'compute.metrics.update'
-        type: 'cumulative'
-        unit: 'ns'
+      - name: "compute.node.cpu.user.time"
+        event_type: "compute.metrics.update"
+        type: "cumulative"
+        unit: "ns"
         volume: $.payload.metrics[?(@.name='cpu.user.time')].value
         resource_id: $.payload.host + "_" + $.payload.nodename
         timestamp: $.payload.metrics[?(@.name='cpu.user.time')].timestamp
@@ -1452,10 +1476,10 @@ conf:
           host: $.publisher_id
           source: $.payload.metrics[?(@.name='cpu.user.time')].source
 
-      - name: 'compute.node.cpu.kernel.time'
-        event_type: 'compute.metrics.update'
-        type: 'cumulative'
-        unit: 'ns'
+      - name: "compute.node.cpu.kernel.time"
+        event_type: "compute.metrics.update"
+        type: "cumulative"
+        unit: "ns"
         volume: $.payload.metrics[?(@.name='cpu.kernel.time')].value
         resource_id: $.payload.host + "_" + $.payload.nodename
         timestamp: $.payload.metrics[?(@.name='cpu.kernel.time')].timestamp
@@ -1464,10 +1488,10 @@ conf:
           host: $.publisher_id
           source: $.payload.metrics[?(@.name='cpu.kernel.time')].source
 
-      - name: 'compute.node.cpu.idle.time'
-        event_type: 'compute.metrics.update'
-        type: 'cumulative'
-        unit: 'ns'
+      - name: "compute.node.cpu.idle.time"
+        event_type: "compute.metrics.update"
+        type: "cumulative"
+        unit: "ns"
         volume: $.payload.metrics[?(@.name='cpu.idle.time')].value
         resource_id: $.payload.host + "_" + $.payload.nodename
         timestamp: $.payload.metrics[?(@.name='cpu.idle.time')].timestamp
@@ -1476,10 +1500,10 @@ conf:
           host: $.publisher_id
           source: $.payload.metrics[?(@.name='cpu.idle.time')].source
 
-      - name: 'compute.node.cpu.iowait.time'
-        event_type: 'compute.metrics.update'
-        type: 'cumulative'
-        unit: 'ns'
+      - name: "compute.node.cpu.iowait.time"
+        event_type: "compute.metrics.update"
+        type: "cumulative"
+        unit: "ns"
         volume: $.payload.metrics[?(@.name='cpu.iowait.time')].value
         resource_id: $.payload.host + "_" + $.payload.nodename
         timestamp: $.payload.metrics[?(@.name='cpu.iowait.time')].timestamp
@@ -1488,10 +1512,10 @@ conf:
           host: $.publisher_id
           source: $.payload.metrics[?(@.name='cpu.iowait.time')].source
 
-      - name: 'compute.node.cpu.kernel.percent'
-        event_type: 'compute.metrics.update'
-        type: 'gauge'
-        unit: 'percent'
+      - name: "compute.node.cpu.kernel.percent"
+        event_type: "compute.metrics.update"
+        type: "gauge"
+        unit: "percent"
         volume: $.payload.metrics[?(@.name='cpu.kernel.percent')].value * 100
         resource_id: $.payload.host + "_" + $.payload.nodename
         timestamp: $.payload.metrics[?(@.name='cpu.kernel.percent')].timestamp
@@ -1500,10 +1524,10 @@ conf:
           host: $.publisher_id
           source: $.payload.metrics[?(@.name='cpu.kernel.percent')].source
 
-      - name: 'compute.node.cpu.idle.percent'
-        event_type: 'compute.metrics.update'
-        type: 'gauge'
-        unit: 'percent'
+      - name: "compute.node.cpu.idle.percent"
+        event_type: "compute.metrics.update"
+        type: "gauge"
+        unit: "percent"
         volume: $.payload.metrics[?(@.name='cpu.idle.percent')].value * 100
         resource_id: $.payload.host + "_" + $.payload.nodename
         timestamp: $.payload.metrics[?(@.name='cpu.idle.percent')].timestamp
@@ -1512,10 +1536,10 @@ conf:
           host: $.publisher_id
           source: $.payload.metrics[?(@.name='cpu.idle.percent')].source
 
-      - name: 'compute.node.cpu.user.percent'
-        event_type: 'compute.metrics.update'
-        type: 'gauge'
-        unit: 'percent'
+      - name: "compute.node.cpu.user.percent"
+        event_type: "compute.metrics.update"
+        type: "gauge"
+        unit: "percent"
         volume: $.payload.metrics[?(@.name='cpu.user.percent')].value * 100
         resource_id: $.payload.host + "_" + $.payload.nodename
         timestamp: $.payload.metrics[?(@.name='cpu.user.percent')].timestamp
@@ -1524,10 +1548,10 @@ conf:
           host: $.publisher_id
           source: $.payload.metrics[?(@.name='cpu.user.percent')].source
 
-      - name: 'compute.node.cpu.iowait.percent'
-        event_type: 'compute.metrics.update'
-        type: 'gauge'
-        unit: 'percent'
+      - name: "compute.node.cpu.iowait.percent"
+        event_type: "compute.metrics.update"
+        type: "gauge"
+        unit: "percent"
         volume: $.payload.metrics[?(@.name='cpu.iowait.percent')].value * 100
         resource_id: $.payload.host + "_" + $.payload.nodename
         timestamp: $.payload.metrics[?(@.name='cpu.iowait.percent')].timestamp
@@ -1536,10 +1560,10 @@ conf:
           host: $.publisher_id
           source: $.payload.metrics[?(@.name='cpu.iowait.percent')].source
 
-      - name: 'compute.node.cpu.percent'
-        event_type: 'compute.metrics.update'
-        type: 'gauge'
-        unit: 'percent'
+      - name: "compute.node.cpu.percent"
+        event_type: "compute.metrics.update"
+        type: "gauge"
+        unit: "percent"
         volume: $.payload.metrics[?(@.name='cpu.percent')].value * 100
         resource_id: $.payload.host + "_" + $.payload.nodename
         timestamp: $.payload.metrics[?(@.name='cpu.percent')].timestamp
@@ -1551,22 +1575,23 @@ conf:
       # Identity
       # NOTE(gordc): hack because jsonpath-rw-ext can't concat starting with string.
       - name: $.payload.outcome.`sub(/.*/, )` + 'identity.authenticate.' + $.payload.outcome
-        type: 'delta'
-        unit: 'user'
+        type: "delta"
+        unit: "user"
         volume: 1
         event_type:
-          - 'identity.authenticate'
+          - "identity.authenticate"
         resource_id: $.payload.initiator.id
         user_id: $.payload.initiator.id
 
       # DNS
-      - name: 'dns.domain.exists'
-        event_type: 'dns.domain.exists'
-        type: 'cumulative'
-        unit: 's'
+      - name: "dns.domain.exists"
+        event_type: "dns.domain.exists"
+        type: "cumulative"
+        unit: "s"
         volume:
-          fields: [$.payload.audit_period_beginning, $.payload.audit_period_ending]
-          plugin: 'timedelta'
+          fields:
+            [$.payload.audit_period_beginning, $.payload.audit_period_ending]
+          plugin: "timedelta"
         project_id: $.payload.tenant_id
         resource_id: $.payload.id
         user_id: $.ctxt.user
@@ -1576,13 +1601,14 @@ conf:
           host: $.publisher_id
 
       # Trove
-      - name: 'trove.instance.exists'
-        event_type: 'trove.instance.exists'
-        type: 'cumulative'
-        unit: 's'
+      - name: "trove.instance.exists"
+        event_type: "trove.instance.exists"
+        type: "cumulative"
+        unit: "s"
         volume:
-          fields: [$.payload.audit_period_beginning, $.payload.audit_period_ending]
-          plugin: 'timedelta'
+          fields:
+            [$.payload.audit_period_beginning, $.payload.audit_period_ending]
+          plugin: "timedelta"
         project_id: $.payload.tenant_id
         resource_id: $.payload.instance_id
         user_id: $.payload.user_id
@@ -1594,14 +1620,14 @@ conf:
           instance_type_id: $.payload.instance_type_id
 
       # Manila
-      - name: 'manila.share.size'
+      - name: "manila.share.size"
         event_type:
-          - 'share.create.*'
-          - 'share.delete.*'
-          - 'share.extend.*'
-          - 'share.shrink.*'
-        type: 'gauge'
-        unit: 'GB'
+          - "share.create.*"
+          - "share.delete.*"
+          - "share.extend.*"
+          - "share.shrink.*"
+        type: "gauge"
+        unit: "GB"
         volume: $.payload.size
         user_id: $.payload.user_id
         project_id: $.payload.project_id
@@ -1637,93 +1663,11 @@ conf:
           - gnocchi://
     sources:
       - events:
-          - '*'
+          - "*"
         name: event_source
         sinks:
           - event_sink
-  policy: {}
-  audit_api_map:
-    DEFAULT:
-      target_endpoint_type: None
-    path_keywords:
-      meters: meter_name
-      resources: resource_id
-      statistics: None
-      samples: sample_id
-    service_endpoints:
-      metering: service/metering
-  rally_tests:
-    CeilometerStats.create_meter_and_get_stats:
-      - args:
-          user_id: user-id
-          resource_id: resource-id
-          counter_volume: 1
-          counter_unit: ''
-          counter_type: cumulative
-        runner:
-          type: constant
-          times: 1
-          concurrency: 1
-        sla:
-          failure_rate:
-            max: 0
-    CeilometerMeters.list_meters:
-      - runner:
-          type: constant
-          times: 1
-          concurrency: 1
-        sla:
-          failure_rate:
-            max: 0
-        context:
-          ceilometer:
-            counter_name: benchmark_meter
-            counter_type: gauge
-            counter_unit: "%"
-            counter_volume: 1
-            resources_per_tenant: 1
-            samples_per_resource: 1
-            timestamp_interval: 10
-            metadata_list:
-            - status: active
-              name: rally benchmark on
-              deleted: 'false'
-            - status: terminated
-              name: rally benchmark off
-              deleted: 'true'
-        args:
-          limit: 5
-          metadata_query:
-            status: terminated
-    CeilometerQueries.create_and_query_samples:
-      - args:
-          filter:
-            "=":
-              counter_unit: instance
-          orderby:
-          limit: 10
-          counter_name: cpu_util
-          counter_type: gauge
-          counter_unit: instance
-          counter_volume: 1
-          resource_id: resource_id
-        runner:
-          type: constant
-          times: 1
-          concurrency: 1
-          sla:
-            failure_rate:
-              max: 0
-
 dependencies:
-  dynamic:
-    common:
-      local_image_registry:
-        jobs:
-          - ceilometer-image-repo-sync
-        services:
-          - endpoint: node
-            service: local_image_registry
   static:
     central:
       jobs:
@@ -1758,18 +1702,6 @@ dependencies:
     db_sync:
       jobs: []
       services: []
-    ks_service:
-      services:
-        - endpoint: internal
-          service: identity
-    ks_user:
-      services:
-        - endpoint: internal
-          service: identity
-    rabbit_init:
-      services:
-      - service: oslo_messaging
-        endpoint: internal
     notification:
       jobs:
         - ceilometer-db-sync
@@ -1780,104 +1712,12 @@ dependencies:
           service: identity
         - endpoint: internal
           service: metric
-    tests:
-      services:
-        - endpoint: internal
-          service: identity
-        - endpoint: internal
-          service: metering
-        - endpoint: internal
-          service: metric
-    image_repo_sync:
-      services:
-        - endpoint: internal
-          service: local_image_registry
-
-# Names of secrets used by bootstrap and environmental checks
-secrets:
-  identity:
-    admin: ceilometer-keystone-admin
-    ceilometer: ceilometer-keystone-user
-    test: ceilometer-keystone-test
-  oslo_messaging:
-    admin: ceilometer-rabbitmq-admin
-    ceilometer: ceilometer-rabbitmq-user
-  oci_image_registry:
-    ceilometer: ceilometer-oci-image-registry
-
-bootstrap:
-  enabled: false
-  ks_user: ceilometer
-  script: |
-    openstack token issue
 
 # typically overridden by environmental
 # values, but should include all endpoints
 # required by this chart
 endpoints:
-  cluster_domain_suffix: cluster.local
-  local_image_registry:
-    name: docker-registry
-    namespace: docker-registry
-    hosts:
-      default: localhost
-      internal: docker-registry
-      node: localhost
-    host_fqdn_override:
-      default: null
-    port:
-      registry:
-        node: 5000
-  oci_image_registry:
-    name: oci-image-registry
-    namespace: oci-image-registry
-    auth:
-      enabled: false
-      ceilometer:
-        username: ceilometer
-        password: password
-    hosts:
-      default: localhost
-    host_fqdn_override:
-      default: null
-    port:
-      registry:
-        default: null
-  identity:
-    name: keystone
-    auth:
-      admin:
-        region_name: RegionOne
-        username: admin
-        password: password
-        project_name: admin
-        user_domain_name: default
-        project_domain_name: default
-      ceilometer:
-        role: admin
-        region_name: RegionOne
-        username: ceilometer
-        password: password
-        project_name: service
-        user_domain_name: service
-        project_domain_name: service
-      test:
-        role: admin
-        region_name: RegionOne
-        username: ceilometer-test
-        password: password
-        project_name: test
-        user_domain_name: service
-        project_domain_name: service
-    hosts:
-      default: keystone
-      internal: keystone-api
-    host_fqdn_override:
-      default: null
-    path:
-      default: /v3
-    scheme:
-      default: 'http'
+  metering:
     port:
       api:
         default: 5000
@@ -1885,74 +1725,16 @@ endpoints:
         internal: 5000
         service: 5000
   metric:
-    name: gnocchi
-    hosts:
-      default: gnocchi-api
-      public: gnocchi
-    host_fqdn_override:
-      default: null
-    path:
-      default: null
-    scheme:
-      default: 'http'
     port:
       api:
         default: 8041
         public: 80
         internal: 8041
         service: 8041
-  alarming:
-    name: aodh
-    hosts:
-      default: aodh-api
-      public: aodh
-    host_fqdn_override:
-      default: null
-    path:
-      default: null
-    scheme:
-      default: 'http'
-    port:
-      api:
-        default: 8042
-        public: 80
-  oslo_cache:
-    auth:
-      # NOTE(portdirect): this is used to define the value for keystone
-      # authtoken cache encryption key, if not set it will be populated
-      # automatically with a random value, but to take advantage of
-      # this feature all services should be set to use the same key,
-      # and memcache service.
-      memcache_secret_key: null
-    hosts:
-      default: memcached
-    host_fqdn_override:
-      default: null
-    port:
-      memcache:
-        default: 11211
   oslo_messaging:
-    auth:
-      admin:
-        username: rabbitmq
-        password: password
-      ceilometer:
-        username: ceilometer
-        password: password
-    statefulset:
-      replicas: 2
-      name: rabbitmq-rabbitmq
-    hosts:
-      default: rabbitmq
     host_fqdn_override:
       default: rabbitmq.openstack.svc.cluster.local
-    path: /ceilometer
-    scheme: rabbit
-    port:
-      amqp:
-        default: 5672
-      http:
-        default: 15672
+
   fluentd:
     namespace: fluentbit
     name: fluentd
@@ -1962,61 +1744,13 @@ endpoints:
       default: null
     path:
       default: null
-    scheme: 'http'
+    scheme: "http"
     port:
       service:
         default: 24224
       metrics:
         default: 24220
 pod:
-  affinity:
-    anti:
-      type:
-        default: preferredDuringSchedulingIgnoredDuringExecution
-      topologyKey:
-        default: kubernetes.io/hostname
-      weight:
-        default: 10
-  tolerations:
-    ceilometer:
-      enabled: false
-      tolerations:
-        - key: node-role.kubernetes.io/master
-          operator: Exists
-          effect: NoSchedule
-        - key: node-role.kubernetes.io/control-plane
-          operator: Exists
-          effect: NoSchedule
-  mounts:
-    ceilometer_tests:
-      init_container: null
-      ceilometer_tests:
-        volumeMounts:
-        volumes:
-    ceilometer_compute:
-      init_container: null
-      ceilometer_compute:
-        volumeMounts:
-        volumes:
-    ceilometer_central:
-      init_container: null
-      ceilometer_central:
-        volumeMounts:
-        volumes:
-    ceilometer_ipmi:
-      init_container: null
-      ceilometer_ipmi:
-        volumeMounts:
-        volumes:
-    ceilometer_notification:
-      init_container: null
-      ceilometer_notification:
-        volumeMounts:
-        volumes:
-    ceilometer_db_sync:
-      ceilometer_db_sync:
-        volumeMounts:
-        volumes:
   replicas:
     central: 1
     notification: 1
@@ -2064,87 +1798,15 @@ pod:
       limits:
         memory: "6144Mi"
         cpu: "2000m"
-    jobs:
-      db_sync:
-        requests:
-          memory: "128Mi"
-          cpu: "100m"
-        limits:
-          memory: "1024Mi"
-          cpu: "2000m"
-      rabbit_init:
-        requests:
-          memory: "128Mi"
-          cpu: "100m"
-        limits:
-          memory: "1024Mi"
-          cpu: "2000m"
-      ks_service:
-        requests:
-          memory: "128Mi"
-          cpu: "100m"
-        limits:
-          memory: "1024Mi"
-          cpu: "2000m"
-      ks_user:
-        requests:
-          memory: "128Mi"
-          cpu: "100m"
-        limits:
-          memory: "1024Mi"
-          cpu: "2000m"
-      tests:
-        requests:
-          memory: "128Mi"
-          cpu: "100m"
-        limits:
-          memory: "1024Mi"
-          cpu: "2000m"
-      image_repo_sync:
-        requests:
-          memory: "128Mi"
-          cpu: "100m"
-        limits:
-          memory: "1024Mi"
-          cpu: "2000m"
-
-network_policy:
-  ceilometer:
-    ingress:
-      - {}
-    egress:
-      - {}
 
 manifests:
-  configmap_bin: true
-  configmap_etc: true
   deployment_api: false
-  deployment_central: true
   deployment_collector: false
-  daemonset_compute: true
-  daemonset_ipmi: false
-  deployment_notification: true
   ingress_api: false
-  job_bootstrap: true
-  job_db_drop: false
   # using gnocchi so no db init
   job_db_init: false
   job_db_init_mongodb: false
-  # runs ceilometer-upgrade which inits resource types in gnocchi!
-  job_db_sync: true
-  job_image_repo_sync: true
   job_ks_endpoints: false
   job_ks_service: false
-  job_ks_user: true
-  job_rabbit_init: true
-  pdb_api: true
-  pod_rally_test: true
-  network_policy: false
-  secret_db: true
-  secret_keystone: true
   secret_mongodb: false
-  secret_rabbitmq: true
-  secret_registry: true
-  service_api: true
   service_ingress_api: false
-...
