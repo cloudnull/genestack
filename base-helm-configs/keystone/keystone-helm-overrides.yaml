@@ -26,6 +26,13 @@ dependencies:
         - keystone-fernet-setup
 
 conf:
+  software:
+    apache2:
+      a2enmod:
+        - headers
+        - rewrite
+        - shib2
+        - ssl
   keystone_api_wsgi:
     wsgi:
       processes: 2
@@ -108,9 +115,13 @@ conf:
         WSGIDaemonProcess keystone-public processes={{ .Values.conf.keystone_api_wsgi.wsgi.processes }} threads={{ .Values.conf.keystone_api_wsgi.wsgi.threads }} user=keystone group=keystone display-name=%{GROUP}
         WSGIProcessGroup keystone-public
         WSGIScriptAlias / /var/www/cgi-bin/keystone/keystone-wsgi-public
+        WSGIScriptAliasMatch ^(/v3/OS-FEDERATION/identity_providers/.*?/protocols/.*?/auth)$ /var/www/keystone/main/$1
         WSGIApplicationGroup %{GLOBAL}
         WSGIPassAuthorization On
         LimitRequestBody 114688
+
+        Proxypass Shibboleth.sso !
+
         <IfVersion >= 2.4>
           ErrorLogFormat "%{cu}t %M"
         </IfVersion>
@@ -119,6 +130,41 @@ conf:
         SetEnvIf X-Forwarded-For "^.*\..*\..*\..*" forwarded
         CustomLog /dev/stdout combined env=!forwarded
         CustomLog /dev/stdout proxy env=forwarded
+
+        <Location /Shibboleth.sso>
+            SetHandler shib
+        </Location>
+
+        <Location /v3/OS-FEDERATION/identity_providers/.*?/protocols/saml2/auth>
+            Require valid-user
+            AuthType shibboleth
+            ShibRequestSetting requireSession 1
+            ShibExportAssertion off
+            <IfVersion < 2.4>
+                ShibRequireSession On
+                ShibRequireAll On
+            </IfVersion>
+        </Location>
+        <Location /v3/auth/OS-FEDERATION/websso/saml2>
+            Require valid-user
+            AuthType shibboleth
+            ShibRequestSetting requireSession 1
+            ShibExportAssertion off
+            <IfVersion < 2.4>
+                ShibRequireSession On
+                ShibRequireAll On
+            </IfVersion>
+        </Location>
+        <Location /v3/auth/OS-FEDERATION/identity_providers/.*?/protocols/saml2/websso>
+            Require valid-user
+            AuthType shibboleth
+            ShibRequestSetting requireSession 1
+            ShibExportAssertion off
+            <IfVersion < 2.4>
+                ShibRequireSession On
+                ShibRequireAll On
+            </IfVersion>
+        </Location>
     </VirtualHost>
 
 secrets:
