@@ -1,0 +1,33 @@
+sortOptions:
+  order: fifo
+resources:
+  - ../base
+
+patches:
+  - target:
+      kind: Deployment
+      name: keystone-api
+    patch: |-
+      - op: add
+        path: /spec/template/spec/containers/[0]/volumeMounts
+        value:
+          - mountPath: "/etc/shibboleth"
+            name: keystone-shibd-etc
+            readOnly: true
+      - op: add
+        path: /spec/template/spec/containers
+        value:
+          - command:
+              - shibd
+            image: ghcr.io/rackerlabs/genestack/Keystone-Shib:2024.1-ubuntu_jammy
+            imagePullPolicy: IfNotPresent
+            volumeMounts:
+              - mountPath: "/etc/shibboleth"
+                name: keystone-shibd-etc
+                readOnly: true
+      - op: add
+        path: /spec/template/spec/volumes
+        value:
+          - name: keystone-shibd-etc
+            secret:
+              secretName: keystone-shibd-etc
