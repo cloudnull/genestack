@@ -25,6 +25,7 @@
   "docker.io/wrouesnel/postgres_exporter:v0.4.6",
   "docker.io/xrally/xrally-openstack:2.0.0",
   "gcr.io/google_containers/hyperkube-amd64:v1.11.6",
+  "ghcr.io/cloudnull/genestack/nova-efi:2025.1-ubuntu_jammy-1750942164",
   "ghcr.io/rackerlabs/genestack/ceilometer:2024.1-ubuntu_jammy-1738626813",
   "ghcr.io/rackerlabs/genestack/cinder-volume-rxt:2024.1-ubuntu_jammy-1731085441",
   "ghcr.io/rackerlabs/genestack/glance:2024.1-ubuntu_jammy-1740121591",
