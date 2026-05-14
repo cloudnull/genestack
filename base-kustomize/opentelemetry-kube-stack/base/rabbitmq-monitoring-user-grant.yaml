@@ -47,6 +47,21 @@ spec:
 apiVersion: rabbitmq.com/v1beta1
 kind: Permission
 metadata:
+  name: rabbitmq-monitoring-permission-cyborg
+  namespace: openstack
+spec:
+  vhost: cyborg
+  user: monitoring
+  permissions:
+    configure: "^$"
+    write: "^$"
+    read: ".*"
+  rabbitmqClusterReference:
+    name: rabbitmq
+---
+apiVersion: rabbitmq.com/v1beta1
+kind: Permission
+metadata:
   name: rabbitmq-monitoring-permission-ceilometer
   namespace: openstack
 spec:

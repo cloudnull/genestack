@@ -95,6 +95,7 @@ COMPONENT_GROUPS = OrderedDict(
             OrderedDict(
                 [
                     ("blazar", "Blazar"),
+                    ("cyborg", "Cyborg"),
                     ("libvirt", "Libvirt"),
                     ("nova", "Nova"),
                     ("placement", "Placement"),
@@ -172,6 +173,7 @@ COMPONENT_ALIASES = OrderedDict(
         ("metallb", "metallb"),
         ("envoy", "envoy"),
         ("blazar", "blazar"),
+        ("cyborg", "cyborg"),
         ("libvirt", "libvirt"),
         ("nova", "nova"),
         ("placement", "placement"),

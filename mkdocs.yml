@@ -222,6 +222,7 @@ nav:
                       - Ceilometer: openstack-ceilometer.md
                       - Cloudkitty: openstack-cloudkitty.md
                   - Blazar: openstack-blazar.md
+                  - Cyborg: openstack-cyborg.md
                   - DNSaaS:
                       - Designate Prep: openstack-designate-prep.md
                       - Deployment: openstack-designate.md
@@ -333,6 +334,7 @@ nav:
               - Masakari Instance/Introspection Monitor: masakari-instance-introspec.md
           - Reservation:
               - Blazar Reservations Creation: openstack-blazar.md
+              - Cyborg Hardware Offload: openstack-cyborg.md
           - Backup Restore:
               - Freezer Backup Restore Creation: openstack-freezer.md
               - Freezer Backup Retention Policy: openstack-freezer-backup-retention.md

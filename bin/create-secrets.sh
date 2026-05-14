@@ -131,6 +131,9 @@ blazar_db_password=$(generate_password 32)
 blazar_admin_password=$(generate_password 32)
 blazar_keystone_test_password=$(generate_password 32)
 blazar_reservation_splitter_rabbitmq_password=$(generate_password 64)
+cyborg_rabbitmq_password=$(generate_password 64)
+cyborg_db_password=$(generate_password 32)
+cyborg_admin_password=$(generate_password 32)
 freezer_db_password=$(generate_password 32)
 freezer_admin_password=$(generate_password 32)
 freezer_keystone_test_password=$(generate_password 32)
@@ -964,6 +967,34 @@ type: Opaque
 data:
   username: $(echo -n "blazar-reservation-splitter" | base64)
   password: $(echo -n $blazar_reservation_splitter_rabbitmq_password | base64 -w0)
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cyborg-rabbitmq-password
+  namespace: openstack
+type: Opaque
+data:
+  username: $(echo -n "cyborg" | base64)
+  password: $(echo -n $cyborg_rabbitmq_password | base64 -w0)
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cyborg-db-password
+  namespace: openstack
+type: Opaque
+data:
+  password: $(echo -n $cyborg_db_password | base64 -w0)
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cyborg-admin
+  namespace: openstack
+type: Opaque
+data:
+  password: $(echo -n $cyborg_admin_password | base64 -w0)
 ---
 apiVersion: v1
 kind: Secret
