@@ -1,0 +1,11 @@
+---
+features:
+  - |
+    Added OpenStack Cyborg deployment support using the upstream
+    openstack-helm chart. Cyborg enables hardware accelerator and
+    offload function management, supporting use cases like DPU
+    acceleration, SmartNIC offloading, and specialized hardware
+    resource management. This includes Helm overrides, Kustomize
+    manifests for MariaDB and RabbitMQ, an install script, gateway
+    API routes, release documentation, and integration with
+    rabbitmq-operator monitoring.

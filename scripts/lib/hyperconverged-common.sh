@@ -375,6 +375,7 @@ function writeServiceHelmOverrides() {
       "${config_base}/envoyproxy-gateway" \
       "${config_base}/barbican" \
       "${config_base}/blazar" \
+      "${config_base}/cyborg" \
       "${config_base}/cinder" \
       "${config_base}/cloudkitty" \
       "${config_base}/freezer" \
@@ -444,6 +445,16 @@ conf:
     uwsgi:
       processes: 1
   blazar:
+    oslo_messaging_notifications:
+      driver: noop
+EOF
+    fi
+
+    if [ ! -f "${config_base}/cyborg/cyborg-helm-overrides.yaml" ]; then
+        cat > "${config_base}/cyborg/cyborg-helm-overrides.yaml" <<EOF
+---
+conf:
+  cyborg:
     oslo_messaging_notifications:
       driver: noop
 EOF
@@ -982,6 +993,16 @@ endpoints:
       public:
         tls: {}
         host: blazar.${gateway_domain}
+    port:
+      api:
+        public: 443
+    scheme:
+      public: https
+  accelerator:
+    host_fqdn_override:
+      public:
+        tls: {}
+        host: cyborg.${gateway_domain}
     port:
       api:
         public: 443
