@@ -7,7 +7,6 @@ sortOptions:
 
 resources:
   - all.yaml
-  - hpa.yaml
 
 patches:
   - target:
@@ -17,13 +16,8 @@ patches:
 
   - target:
       kind: ConfigMap
-      name: memcached-memcached-bin
+      name: memcached-bin
     path: memcached-bin-configmap-patch.yaml
-
-  - path: memcached-service-session-affinity-config-patch.yaml
-    target:
-      kind: Service
-      name: memcached
 
   - path: memcached-statefulset-patch.yaml
     target:
